@@ -8,8 +8,10 @@ exports.getBookings = async (req, res, next) => {
   let query;
   //General users can see only their appointments!
   if (req.user.role !== "admin") {
-    query = Booking.find({ user: req.user.id }).populate({
-      path: "company", //
+    const filter = { user: req.user.id };
+    if (req.params.companyId) filter.company = req.params.companyId;
+    query = Booking.find(filter).populate({
+      path: "company",
       select: "name address tel",
     });
   } else {
@@ -47,7 +49,6 @@ exports.getBookings = async (req, res, next) => {
 //@route GET /api/v1/bookings/:id
 //@access Public
 exports.getBooking = async (req, res, next) => {
-  //only users can access their own bookings,not any user if they know booking id
   try {
     const booking = await Booking.findById(req.params.id).populate({
       path: "company",
@@ -57,7 +58,7 @@ exports.getBooking = async (req, res, next) => {
     if (!booking) {
       return res.status(404).json({
         success: false,
-        message: ` No booking with the id of ${req.params.id}`,
+        message: `No booking with the id of ${req.params.id}`,
       });
     }
 
@@ -79,8 +80,9 @@ exports.getBooking = async (req, res, next) => {
       .json({ success: false, message: "Cannot find Booking" });
   }
 };
+
 //@desc Add booking
-//@route POST /api/v1/companies/:companyId/booking
+//@route POST /api/v1/companies/:companyId/bookings
 //@access Private
 exports.addBooking = async (req, res, next) => {
   try {
@@ -95,7 +97,6 @@ exports.addBooking = async (req, res, next) => {
       });
     }
 
-    //add user Id to req.body
     req.body.user = req.user.id;
 
     //Check for existed appointment
@@ -135,7 +136,6 @@ exports.updateBooking = async (req, res, next) => {
       });
     }
 
-    //Make sure user is the booking owner
     if (booking.user.toString() !== req.user.id && req.user.role !== "admin") {
       return res.status(401).json({
         success: false,
@@ -158,6 +158,7 @@ exports.updateBooking = async (req, res, next) => {
       .json({ success: false, message: "Cannot update Booking" });
   }
 };
+
 //@desc Delete booking
 //@route DELETE /api/v1/bookings/:id
 //@access Private
@@ -171,7 +172,6 @@ exports.deleteBooking = async (req, res, next) => {
       });
     }
 
-    //Make sure user is the booking owner
     if (booking.user.toString() !== req.user.id && req.user.role !== "admin") {
       return res.status(401).json({
         success: false,

@@ -95,7 +95,7 @@ exports.getCompany = async (req, res, next) => {
 //@desc Create all companies
 //@route POST /api/v1/companies
 //@access Private
-exports.createCompanies = async (req, res, next) => {
+exports.createCompany = async (req, res, next) => {
   try {
     const company = await Company.create(req.body);
     res.status(201).json({ success: true, data: company });

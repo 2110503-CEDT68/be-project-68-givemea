@@ -3,7 +3,6 @@ const User=require('../models/User');
 //@desc Register user
 //@route POST /api/v1/auth/register
 //@access Public
-
 exports.register=async(req,res,next)=>{
     try{
         const{name,email,password,tel,role}=req.body;
@@ -17,13 +16,31 @@ exports.register=async(req,res,next)=>{
             role
         });
 
-        //Create token
-        //const token=user.getSignedJwtToken();
-        //res.status(200).json({success:true,token});
-        sendTokenResponse(user,200,res);
+        sendTokenResponse(user,201,res);
     }catch(err){
-        res.status(400).json({success:false});
         console.log(err.stack);
+
+        // Handle duplicate email
+        if(err.code === 11000){
+            return res.status(400).json({
+                success: false,
+                message: `Email '${err.keyValue.email}' is already registered`
+            });
+        }
+
+        // Handle mongoose validation errors
+        if(err.name === 'ValidationError'){
+            const messages = Object.values(err.errors).map(e => e.message);
+            return res.status(400).json({
+                success: false,
+                message: messages.join(', ')
+            });
+        }
+
+        res.status(400).json({
+            success: false,
+            message: err.message
+        });
     }
 };
 
@@ -50,24 +67,19 @@ exports.login=async (req,res,next)=>{
         return res.status(401).json({success:false,msg:'Invalid credentials'});
    }
 
-   //create token
-   //const token=user.getSignedJwtToken();
-   //res.status(200).json({success:true,token});
    sendTokenResponse(user,200,res);
 
     }catch(err){
-        console.log(err); // show full error in terminal
-
+        console.log(err);
         return res.status(500).json({
-      success: false,
-      error: err.message
+            success: false,
+            error: err.message
         });
-        //return res.status(401).json({success:false, msg:'Cannot convert email or password to string'});
     }
 };
+
 //Get token from model, create cookie and send response
 const sendTokenResponse=(user, statusCode, res)=>{
-    //Create token
     const token=user.getSignedJwtToken();
     const options ={
         expires:new Date(Date.now()+process.env.JWT_COOKIE_EXPIRE*24*60*60*1000),
@@ -80,12 +92,11 @@ const sendTokenResponse=(user, statusCode, res)=>{
     res.status(statusCode).cookie('token',token,options).json({
         success: true,
         token
-    })
+    });
+};
 
-}
-//At the end of file
 //@desc Get current Logged in user
-//@route POST /api/v1/auth/me
+//@route GET /api/v1/auth/me
 //@access Private
 exports.getMe = async (req, res, next) => {
     try {
