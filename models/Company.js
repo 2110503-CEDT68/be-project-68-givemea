@@ -31,4 +31,14 @@ const CompanySchema = new mongoose.Schema({
   },
 });
 
+CompanySchema.virtual("bookings", {
+  ref: "Booking",
+  localField: "_id",
+  foreignField: "company",
+  justOne: false,
+});
+
+CompanySchema.set("toJSON", { virtuals: true });
+CompanySchema.set("toObject", { virtuals: true });
+
 module.exports = mongoose.model("Company", CompanySchema);

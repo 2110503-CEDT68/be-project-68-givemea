@@ -3,7 +3,7 @@ const Company = require("../models/Company");
 
 //@desc Get all bookings
 //@route GET /api/v1/bookings
-//@access Pubic
+//@access Public
 exports.getBookings = async (req, res, next) => {
   let query;
   //General users can see only their appointments!
@@ -61,13 +61,11 @@ exports.getBooking = async (req, res, next) => {
       });
     }
 
-     if (booking.user.toString() !== req.user.id && req.user.role !== "admin") {
-      return res
-        .status(401)
-        .json({
-          success: false,
-          message: "Not authorized to view this booking",
-        });
+    if (booking.user.toString() !== req.user.id && req.user.role !== "admin") {
+      return res.status(401).json({
+        success: false,
+        message: "Not authorized to view this booking",
+      });
     }
 
     res.status(200).json({

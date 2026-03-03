@@ -29,7 +29,7 @@ exports.register=async(req,res,next)=>{
 
 //@desc Login user
 //@route POST /api/v1/auth/login
-//@access Publicc
+//@access Public
 exports.login=async (req,res,next)=>{
     try{
     const {email,password}=req.body;
