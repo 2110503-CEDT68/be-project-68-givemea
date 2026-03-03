@@ -1,0 +1,167 @@
+@startuml UseCase
+left to right direction
+skinparam actorStyle awesome
+
+actor "Guest" as G
+actor "Registered User" as U
+actor "Admin" as A
+
+rectangle "Online Job Fair Registration" {
+  usecase "Register" as UC1
+  usecase "Login" as UC2
+  usecase "Logout" as UC3
+  usecase "View Companies" as UC4
+  usecase "Create Booking" as UC5
+  usecase "View Own Bookings" as UC6
+  usecase "Edit Own Booking" as UC7
+  usecase "Delete Own Booking" as UC8
+  usecase "View Any Booking" as UC9
+  usecase "Edit Any Booking" as UC10
+  usecase "Delete Any Booking" as UC11
+}
+
+G --> UC1
+G --> UC2
+G --> UC4
+
+U --> UC2
+U --> UC3
+U --> UC4
+U --> UC5
+U --> UC6
+U --> UC7
+U --> UC8
+
+A --> UC2
+A --> UC3
+A --> UC4
+A --> UC9
+A --> UC10
+A --> UC11
+
+note right of UC5 : Max 3 bookings\nper user
+@enduml
+
+@startuml ClassDiagram
+skinparam classAttributeIconSize 0
+
+class User {
+  +_id: ObjectId
+  +name: String
+  +tel: String
+  +email: String
+  +role: String <<user|admin>>
+  +password: String
+  +createdAt: Date
+  --
+  +getSignedJwtToken(): String
+  +matchPassword(password): Boolean
+}
+
+class Company {
+  +_id: ObjectId
+  +name: String
+  +address: String
+  +tel: String
+  +website: String
+  +description: String
+  +createdAt: Date
+}
+
+class Booking {
+  +_id: ObjectId
+  +bookDate: Date
+  +createdAt: Date
+  --
+  +user: ObjectId <<ref User>>
+  +company: ObjectId <<ref Company>>
+}
+
+User "1" -- "0..3" Booking : creates >
+Company "1" -- "0..*" Booking : receives >
+
+note right of User : role: user หรือ admin\npassword ถูก hash ด้วย bcrypt
+note right of Booking : user จองได้สูงสุด 3 ครั้ง\n(ยกเว้น admin)
+@enduml
+
+@startuml SequenceDiagram_Register
+title User Registration
+
+actor User
+participant "Express Server" as S
+participant "Auth Controller" as C
+participant "User Model" as M
+database "MongoDB" as DB
+
+User -> S: POST /api/v1/auth/register\n{name, tel, email, password, role}
+S -> C: register()
+C -> M: User.create({name, tel, email, password, role})
+M -> M: bcrypt.hash(password)
+M -> DB: insertOne(user)
+DB --> M: user document
+M --> C: user object
+C -> C: user.getSignedJwtToken()
+C --> S: {success: true, token}
+S --> User: 201 + JWT Token in cookie & body
+@enduml
+
+@startuml SequenceDiagram_Login
+title User Login
+
+actor User
+participant "Express Server" as S
+participant "Auth Controller" as C
+participant "User Model" as M
+database "MongoDB" as DB
+
+User -> S: POST /api/v1/auth/login\n{email, password}
+S -> C: login()
+C -> DB: User.findOne({email}).select('+password')
+DB --> C: user document
+C -> M: user.matchPassword(password)
+M -> M: bcrypt.compare()
+M --> C: isMatch: true/false
+
+alt isMatch = false
+  C --> S: {success: false, msg: 'Invalid credentials'}
+  S --> User: 401
+else isMatch = true
+  C -> C: user.getSignedJwtToken()
+  C --> S: {success: true, token}
+  S --> User: 200 + JWT Token
+end
+@enduml
+
+@startuml SequenceDiagram_CreateBooking
+title Create Booking
+
+actor User
+participant "Express Server" as S
+participant "protect middleware" as MW
+participant "Booking Controller" as C
+database "MongoDB" as DB
+
+User -> S: POST /api/v1/companies/:companyId/bookings\nAuthorization: Bearer <token>\n{bookDate}
+
+S -> MW: protect()
+MW -> DB: User.findById(decoded.id)
+DB --> MW: user
+MW --> S: req.user = user
+
+S -> C: addBooking()
+C -> DB: Company.findById(companyId)
+DB --> C: company
+
+C -> DB: Booking.find({user: req.user.id})
+DB --> C: existingBookings[]
+
+alt existingBookings >= 3 AND role != admin
+  C --> S: {success: false, message: 'Already made 3 bookings'}
+  S --> User: 400
+else
+  C -> DB: Booking.create({bookDate, user, company})
+  DB --> C: booking
+  C --> S: {success: true, data: booking}
+  S --> User: 201
+end
+@enduml

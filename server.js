@@ -46,23 +46,21 @@ app.use(cookieParser());
 // Body parser
 app.use(express.json());
 
-// Sanitize data
-app.use(
-  mongoSanitize({
-    // workaround to log sanitized keys for debugging
-    onSanitize: ({ req, key }) => {
-      console.warn(`Sanitized key: ${key} from request`);
-    },
-  })
-);
+// Sanitize data — ป้องกัน MongoDB injection เช่น { "$gt": "" }
+// sanitize เฉพาะ body และ params เพราะ Express 5 ทำให้ req.query เป็น read-only
+app.use((req, res, next) => {
+  if (req.body) req.body = mongoSanitize.sanitize(req.body);
+  if (req.params) req.params = mongoSanitize.sanitize(req.params);
+  next();
+});
 
 // Set security HTTP headers
 app.use(helmet());
 
-// Prevent XSS attacks
+// Prevent XSS attacks — ฆ่า <script> ใน input
 app.use(xss());
 
-// Rate limiting - limit each IP to 100 requests per 10 minutes
+// Rate limiting — จำกัด 100 requests ต่อ 10 นาที ต่อ IP
 const limiter = rateLimit({
   windowMs: 10 * 60 * 1000, // 10 minutes
   max: 100,
@@ -73,10 +71,10 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// Enable CORS for all routes (you can restrict this in production)
+// Enable CORS — อนุญาตให้ domain อื่นเรียก API ได้
 app.use(cors());
 
-// Prevent HTTP Parameter Pollution attacks
+// Prevent HTTP Parameter Pollution เช่น ?sort=name&sort=tel
 app.use(hpp());
 
 // Route files
